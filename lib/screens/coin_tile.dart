@@ -68,14 +68,12 @@ class CoinTile extends StatelessWidget {
                       Text(
                         '$price1',
                         style: TextStyle(
-                          // color: Colors.black,
                           fontSize: 21,
                         ),
                       ),
                       Text(
                         ' ' + priceType,
                         style: TextStyle(
-                          // color: Colors.black,
                           fontSize: 21,
                         ),
                       ),
@@ -85,7 +83,7 @@ class CoinTile extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       Text(
-                        '≈ ' + '$price2',
+                        '≈ ${price2.toStringAsFixed(4)}',
                         style: TextStyle(
                           color: Colors.grey[500],
                           fontSize: 16,
@@ -112,7 +110,7 @@ class CoinTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    change.toString() + '%',
+                   '$change%',
                     style: TextStyle(
                       color: changeColor,
                       fontSize: 21,

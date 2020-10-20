@@ -13,6 +13,92 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   TabController _tabController;
+  
+  IOWebSocketChannel channel;
+
+  double usdTRY = 7.92;
+
+
+  Map<String, ParityValue> parityValues = {};
+  List<Parity> parities = [
+    Parity("ti1", "BTC-TRY", "assets/btc.png", "TRY", "BTC"),
+    Parity("ti2", "ETH-TRY", "assets/eth.png", "TRY", "ETH"),
+    Parity("ti6", "XRP-TRY", "assets/xrp.png", "TRY", "XRP"),
+    Parity("ti4", "EOS-TRY", "assets/eos.png", "TRY", "EOS"),
+    Parity("ti3", "NEO-TRY", "assets/neo.png", "TRY", "NEO"),
+    Parity("ti5", "HOT-TRY", "assets/hot.png", "TRY", "HOT"),
+    Parity("ti7", "ETH-BTC", "assets/eth.png", "BTC", "ETH"),
+    Parity("ti8", "XRP-BTC", "assets/xrp.png", "BTC", "XRP"),
+    Parity("ti10", "EOS-BTC", "assets/eos.png", "BTC", "EOS"),
+    Parity("ti9", "NEO-BTC", "assets/neo.png", "BTC", "NEO"),
+    Parity("ti12", "XRP-ETH", "assets/xrp.png", "ETH", "XRP"),
+    Parity("ti14", "EOS-ETH", "assets/eos.png", "ETH", "EOS"),
+    Parity("ti13", "NEO-ETH", "assets/neo.png", "ETH", "NEO"),
+    Parity("ti15", "HOT-ETH", "assets/hot.png", "ETH", "HOT"),
+    Parity("ti11", "CNZ-TRY", "assets/cnz.png", "TRY", "CNZ"),
+  ];
+
+  initConnection() {
+    channel = IOWebSocketChannel.connect('wss://www.coinzo.com/ws');
+
+    parities.forEach((element) {
+      var name = element.name;
+      channel.sink
+          .add('{"event":"subscribe","channel":"ticker","pair":"$name"}');
+    });
+
+    channel.stream.listen((event) {
+      // print(event);
+      if (event.startsWith('["ti')) {
+        var map = jsonDecode(event);
+        var id = map[0];
+        var dailyChange = double.parse(map[1][0]);
+        var dailyPer = double.parse(map[1][1]);
+        var lastPrice = double.parse(map[1][2]);
+        var volume = double.parse(map[1][3]);
+        var high = double.parse(map[1][4]);
+        var low = double.parse(map[1][5]);
+
+        ParityValue parityValue = ParityValue(
+          id,
+          dailyChange,
+          dailyPer,
+          lastPrice,
+          volume,
+          high,
+          low,
+        );
+
+        setState(() {
+          parityValues[id] = parityValue;
+        });
+      }
+    }, onError: (err) {
+      print(err);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    initConnection();
+    _tabController = TabController(vsync: this, length: 3);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(),
+            _buildHeader(),
+            Expanded(child: _buildTabBarView())
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildAppBar() {
     return Container(
@@ -145,8 +231,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  double dolar = 7.8817;
-
   Widget _buildTRY() {
     return ListView(
         children: parities
@@ -164,11 +248,15 @@ class _HomePageState extends State<HomePage>
                 priceType: e.base,
                 price2: parityValues[e.id] == null
                     ? 0
-                    : parityValues[e.id].lastPrice / dolar.round(), //dolar
+                    : parityValues[e.id].lastPrice / usdTRY.round(), //dolar
                 change: parityValues[e.id] == null
                     ? 0
                     : parityValues[e.id].dailyPer,
-                changeColor: Colors.green,
+                changeColor: parityValues[e.id] == null
+                    ? Colors.black
+                    : parityValues[e.id].dailyPer <= 0
+                        ? Colors.red
+                        : Colors.green,
               ),
             )
             .toList());
@@ -191,11 +279,17 @@ class _HomePageState extends State<HomePage>
                 priceType: e.base,
                 price2: parityValues[e.id] == null
                     ? 0
-                    : parityValues[e.id].lastPrice / dolar.round(), //dolar
+                    : parityValues[e.id].lastPrice *
+                        parityValues['ti1'].lastPrice /
+                        usdTRY, //dolar
                 change: parityValues[e.id] == null
                     ? 0
                     : parityValues[e.id].dailyPer,
-                changeColor: Colors.green,
+                changeColor: parityValues[e.id] == null
+                    ? Colors.black
+                    : parityValues[e.id].dailyPer <= 0
+                        ? Colors.red
+                        : Colors.green,
               ),
             )
             .toList());
@@ -207,106 +301,30 @@ class _HomePageState extends State<HomePage>
             .where((element) => element.base == "ETH")
             .map(
               (e) => CoinTile(
-                  coinIcon: Image.asset(
-                    e.iconAsset,
-                    width: 32,
-                  ),
-                  coinName: e.target,
-                  price1: parityValues[e.id] == null
-                      ? 0
-                      : parityValues[e.id].lastPrice,
-                  priceType: e.base,
-                  price2: parityValues[e.id] == null
-                      ? 0
-                      : parityValues[e.id].lastPrice / dolar.round(), //dolar
-                  change: parityValues[e.id] == null
-                      ? 0
-                      : parityValues[e.id].dailyPer,
-                  changeColor: Colors.green),
+                coinIcon: Image.asset(
+                  e.iconAsset,
+                  width: 32,
+                ),
+                coinName: e.target,
+                price1: parityValues[e.id] == null
+                    ? 0
+                    : parityValues[e.id].lastPrice,
+                priceType: e.base,
+                price2: parityValues[e.id] == null
+                    ? 0
+                    : parityValues[e.id].lastPrice *
+                        parityValues['ti2'].lastPrice /
+                        usdTRY, //dolar
+                change: parityValues[e.id] == null
+                    ? 0
+                    : parityValues[e.id].dailyPer,
+                changeColor: parityValues[e.id] == null
+                    ? Colors.black
+                    : parityValues[e.id].dailyPer <= 0
+                        ? Colors.red
+                        : Colors.green,
+              ),
             )
             .toList());
-  }
-
-  List<Parity> parities = [
-    Parity("ti1", "BTC-TRY", "assets/btc.png", "TRY", "BTC"),
-    Parity("ti2", "ETH-TRY", "assets/eth.png", "TRY", "ETH"),
-    Parity("ti6", "XRP-TRY", "assets/xrp.png", "TRY", "XRP"),
-    Parity("ti4", "EOS-TRY", "assets/eos.png", "TRY", "EOS"),
-    Parity("ti3", "NEO-TRY", "assets/neo.png", "TRY", "NEO"),
-    Parity("ti5", "HOT-TRY", "assets/hot.png", "TRY", "HOT"),
-    Parity("ti7", "ETH-BTC", "assets/eth.png", "BTC", "ETH"),
-    Parity("ti8", "XRP-BTC", "assets/xrp.png", "BTC", "XRP"),
-    Parity("ti10", "EOS-BTC", "assets/eos.png", "BTC", "EOS"),
-    Parity("ti9", "NEO-BTC", "assets/neo.png", "BTC", "NEO"),
-    Parity("ti12", "XRP-ETH", "assets/xrp.png", "ETH", "XRP"),
-    Parity("ti14", "EOS-ETH", "assets/eos.png", "ETH", "EOS"),
-    Parity("ti13", "NEO-ETH", "assets/neo.png", "ETH", "NEO"),
-    Parity("ti15", "HOT-ETH", "assets/hot.png", "ETH", "HOT"),
-    Parity("ti11", "CNZ-TRY", "assets/cnz.png", "TRY", "CNZ"),
-  ];
-
-  Map<String, ParityValue> parityValues = {};
-  IOWebSocketChannel channel;
-
-  initConnection() {
-    channel = IOWebSocketChannel.connect('wss://www.coinzo.com/ws');
-
-    parities.forEach((element) {
-      var name = element.name;
-      channel.sink
-          .add('{"event":"subscribe","channel":"ticker","pair":"$name"}');
-    });
-
-    channel.stream.listen((event) {
-      // print(event);
-      if (event.startsWith('["ti')) {
-        var map = jsonDecode(event);
-        var id = map[0];
-        var dailyChange = double.parse(map[1][0]);
-        var dailyPer = double.parse(map[1][1]);
-        var lastPrice = double.parse(map[1][2]);
-        var volume = double.parse(map[1][3]);
-        var high = double.parse(map[1][4]);
-        var low = double.parse(map[1][5]);
-
-        ParityValue parityValue = ParityValue(
-          id,
-          dailyChange,
-          dailyPer,
-          lastPrice,
-          volume,
-          high,
-          low,
-        );
-
-        setState(() {
-          parityValues[id] = parityValue;
-        });
-      }
-    }, onError: (err) {
-      print(err);
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    initConnection();
-    _tabController = TabController(vsync: this, length: 3);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(),
-            _buildHeader(),
-            Expanded(child: _buildTabBarView())
-          ],
-        ),
-      ),
-    );
   }
 }
